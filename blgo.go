@@ -137,8 +137,9 @@ func buildAll(cmd string, mdFiles []string) {
 		var descBuf, titleBuf bytes.Buffer
 		xml.EscapeText(&descBuf, bytes.Trim(body[:200], " \n\r"))
 		xml.EscapeText(&titleBuf, []byte(title))
+
 		index.Posts[i] = Post{
-			Body:         string(blackfriday.MarkdownCommon(body)),
+			Body:         string(blackfriday.MarkdownOptions(body, renderer, blackfriday.Options{Extensions: commonExtensions})),
 			Date:         date,
 			Link:         index.URL + outputFilename(mdFilename),
 			RelativeLink: "/" + outputFilename(mdFilename),
