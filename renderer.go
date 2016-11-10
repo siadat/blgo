@@ -36,11 +36,20 @@ var (
 )
 
 func (options *Renderer) BlockCode(out *bytes.Buffer, text []byte, lang string) {
-	if lang != "go" {
+	switch lang {
+	case "go":
+		out.WriteString("<pre>")
+		godoc.FormatText(out, text, 1, true, "", nil)
+		out.WriteString("</pre>")
+	case "shell":
+		out.WriteString("<div class='shell'>")
 		bfHtmlRenderer.BlockCode(out, text, lang)
-		return
+		out.WriteString("</div>")
+	case "output":
+		out.WriteString("<div class='output'>")
+		bfHtmlRenderer.BlockCode(out, text, lang)
+		out.WriteString("</div>")
+	default:
+		bfHtmlRenderer.BlockCode(out, text, lang)
 	}
-	out.WriteString("<pre>")
-	godoc.FormatText(out, text, 1, true, "", nil)
-	out.WriteString("</pre>")
 }
