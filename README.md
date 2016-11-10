@@ -9,6 +9,7 @@
     /___/___|_\
      (o)    (o)
 
+Bl, go!
 
     $ blgo watch src/*.md
     $ blgo build src/*.md

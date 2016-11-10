@@ -32,6 +32,7 @@ type Post struct {
 	Link         string
 	RelativeLink string
 	Title        string
+	BlogTitle    string
 	XMLDesc      string
 	XMLTitle     string
 }
@@ -144,6 +145,7 @@ func buildAll(cmd string, mdFiles []string) {
 			Link:         index.URL + outputFilename(mdFilename),
 			RelativeLink: "/" + outputFilename(mdFilename),
 			Title:        title,
+			BlogTitle:    "Sina Siadat",
 			XMLDesc:      descBuf.String(),
 			XMLTitle:     titleBuf.String(),
 		}
