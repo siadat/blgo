@@ -35,6 +35,7 @@ type Post struct {
 	BlogTitle    string
 	XMLDesc      string
 	XMLTitle     string
+	Draft        bool
 }
 
 type Index struct {
@@ -105,11 +106,10 @@ func buildAll(cmd string, mdFiles []string) {
 		Title:     "Sina Siadat",
 		URL:       "https://siadat.github.io/",
 		XMLURL:    "https://siadat.github.io/index.xml",
-		Posts:     make([]Post, len(mdFiles)),
 		UpdatedAt: time.Now(),
 	}
 
-	for i, mdFilename := range mdFiles {
+	for _, mdFilename := range mdFiles {
 		body, err = ioutil.ReadFile(mdFilename)
 		if err != nil {
 			log.Fatal("ioutil.ReadFile:", err)
@@ -117,15 +117,23 @@ func buildAll(cmd string, mdFiles []string) {
 
 		log.Println(mdFilename)
 		var title string
+		var draft bool
 		var date time.Time
 		frontmatter := parseFrontmatter(&body)
 
-		if iface, ok := frontmatter["title"]; ok {
-			title = iface.(string)
+		if v, ok := frontmatter["title"]; ok {
+			title = v.(string)
 		}
 
-		if iface, ok := frontmatter["date"]; ok {
-			if date, err = time.Parse(shortTimeFormat, iface.(string)); err != nil {
+		if v, ok := frontmatter["draft"]; ok {
+			draft = v.(bool)
+		}
+		if draft {
+			continue
+		}
+
+		if v, ok := frontmatter["date"]; ok {
+			if date, err = time.Parse(shortTimeFormat, v.(string)); err != nil {
 				log.Println("time.Parse:", err)
 			}
 		}
@@ -139,7 +147,7 @@ func buildAll(cmd string, mdFiles []string) {
 		xml.EscapeText(&descBuf, bytes.Trim(body[:200], " \n\r"))
 		xml.EscapeText(&titleBuf, []byte(title))
 
-		index.Posts[i] = Post{
+		index.Posts = append(index.Posts, Post{
 			Body:         string(blackfriday.MarkdownOptions(body, renderer, blackfriday.Options{Extensions: commonExtensions})),
 			Date:         date,
 			Link:         index.URL + outputFilename(mdFilename),
@@ -148,9 +156,10 @@ func buildAll(cmd string, mdFiles []string) {
 			BlogTitle:    "Sina Siadat",
 			XMLDesc:      descBuf.String(),
 			XMLTitle:     titleBuf.String(),
-		}
+			Draft:        draft,
+		})
 
-		err = tmpl.ExecuteTemplate(outfile, "post.tmpl.html", index.Posts[i])
+		err = tmpl.ExecuteTemplate(outfile, "post.tmpl.html", index.Posts[len(index.Posts)-1])
 		if err != nil {
 			log.Fatalln("tmpl.ExecuteTemplate:", err)
 		}

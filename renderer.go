@@ -17,7 +17,8 @@ const commonHtmlFlags = 0 |
 	blackfriday.HTML_USE_SMARTYPANTS |
 	blackfriday.HTML_SMARTYPANTS_FRACTIONS |
 	blackfriday.HTML_SMARTYPANTS_DASHES |
-	blackfriday.HTML_SMARTYPANTS_LATEX_DASHES
+	blackfriday.HTML_SMARTYPANTS_LATEX_DASHES |
+	blackfriday.HTML_HREF_TARGET_BLANK
 
 const commonExtensions = 0 |
 	blackfriday.EXTENSION_NO_INTRA_EMPHASIS |
@@ -35,7 +36,8 @@ var (
 	renderer       = &Renderer{Html: bfHtmlRenderer.(*blackfriday.Html)}
 )
 
-func (options *Renderer) BlockCode(out *bytes.Buffer, text []byte, lang string) {
+func (options *Renderer) BlockCode(out *bytes.Buffer,
+	text []byte, lang string) {
 	switch lang {
 	case "go":
 		out.WriteString("<pre>")
@@ -48,6 +50,10 @@ func (options *Renderer) BlockCode(out *bytes.Buffer, text []byte, lang string) 
 	case "output":
 		out.WriteString("<div class='output'>")
 		bfHtmlRenderer.BlockCode(out, text, lang)
+		out.WriteString("</div>")
+	case "notebox":
+		out.WriteString("<div class='notebox'>")
+		out.Write(blackfriday.MarkdownCommon(text))
 		out.WriteString("</div>")
 	default:
 		bfHtmlRenderer.BlockCode(out, text, lang)
