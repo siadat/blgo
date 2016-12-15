@@ -192,8 +192,8 @@ func main() {
 
 	if flag.NArg() <= 1 {
 		log.Print("Usage: $0 build")
-		log.Print("$0 build src/*")
-		log.Print("$0 watch src/*")
+		log.Print("$0 build src/*.md")
+		log.Print("$0 watch src/*.md")
 		os.Exit(1)
 	}
 
