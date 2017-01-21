@@ -50,8 +50,8 @@ func (index Index) Len() int           { return len(index.Posts) }
 func (index Index) Swap(i, j int)      { index.Posts[i], index.Posts[j] = index.Posts[j], index.Posts[i] }
 func (index Index) Less(i, j int) bool { return index.Posts[i].Date.Before(index.Posts[j].Date) }
 
-func outputFilename(filename string) string {
-	filename = strings.TrimSuffix(filepath.Base(filename), ".md") + ".html"
+func outputFilename(filename, ext string) string {
+	filename = strings.TrimSuffix(filepath.Base(filename), ".md") + ext
 	return filepath.Join("post", filename)
 }
 
@@ -92,6 +92,7 @@ func parseFrontmatter(body *[]byte) (frontmatter map[interface{}]interface{}) {
 }
 
 func buildAll(cmd string, mdFiles []string) {
+	log.SetFlags(log.LstdFlags)
 	tmpl := template.Must(template.ParseFiles(
 		"templates/post.tmpl.html",
 		"templates/index.tmpl.html",
@@ -138,7 +139,7 @@ func buildAll(cmd string, mdFiles []string) {
 			}
 		}
 
-		outfile, err = os.Create(outputFilename(mdFilename))
+		outfile, err = os.Create(outputFilename(mdFilename, ".html"))
 		if err != nil {
 			log.Fatalln("os.Create:", err)
 		}
@@ -150,8 +151,8 @@ func buildAll(cmd string, mdFiles []string) {
 		index.Posts = append(index.Posts, Post{
 			Body:         string(blackfriday.MarkdownOptions(body, renderer, blackfriday.Options{Extensions: commonExtensions})),
 			Date:         date,
-			Link:         index.URL + outputFilename(mdFilename),
-			RelativeLink: "/" + outputFilename(mdFilename),
+			Link:         index.URL + outputFilename(mdFilename, ""),
+			RelativeLink: "/" + outputFilename(mdFilename, ""),
 			Title:        title,
 			BlogTitle:    "Sina Siadat",
 			XMLDesc:      descBuf.String(),
@@ -188,7 +189,7 @@ func buildAll(cmd string, mdFiles []string) {
 
 func main() {
 	flag.Parse()
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.SetFlags(log.Lshortfile)
 
 	if flag.NArg() <= 1 {
 		log.Print("Usage: $0 build")

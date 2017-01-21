@@ -41,7 +41,7 @@ func (options *Renderer) BlockCode(out *bytes.Buffer,
 	switch lang {
 	case "go":
 		out.WriteString("<pre>")
-		godoc.FormatText(out, text, 1, true, "", nil)
+		godoc.FormatText(out, text, -1, true, "", nil)
 		out.WriteString("</pre>")
 	case "shell":
 		out.WriteString("<div class='shell'>")

@@ -1,7 +1,5 @@
 # blgo
 
-*Warning*: This is just a backup for my personal blog engine. Use at your own risk.
-
          O
         /\_
        /_  `\D
