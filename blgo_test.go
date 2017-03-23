@@ -35,11 +35,14 @@ func TestParseFrontmatter(t *testing.T) {
 }
 
 func TestOutputFilename(t *testing.T) {
-	for k, want := range map[string]string{
-		"src/file.md":          "post/file.html",
-		"path/to/file/blog.md": "post/blog.html",
+	for k, want := range map[struct {
+		fileName string
+		ext      string
+	}]string{
+		{"src/file.md", ".html"}:         "post/file.html",
+		{"path/to/file/blog.md", ".txt"}: "post/blog.txt",
 	} {
-		if got := outputFilename(k); got != want {
+		if got := outputFilename(k.fileName, k.ext); got != want {
 			t.Errorf("got %q; want %q", got, want)
 		}
 	}
