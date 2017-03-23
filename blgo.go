@@ -68,16 +68,16 @@ func parseFrontmatter(body *[]byte) (frontmatter map[interface{}]interface{}) {
 		}
 
 		if line == "---\n" {
-			if started == false {
+			if !started {
 				started = true
-			} else if ended == false {
+			} else if !ended {
 				ended = true
 			}
 		}
-		if started != false {
+		if started {
 			frontmatterBuf.Write([]byte(line))
 		}
-		if ended != false {
+		if ended {
 			break
 		}
 	}
