@@ -60,7 +60,7 @@ func parseFrontmatter(body *[]byte) (frontmatter map[interface{}]interface{}) {
 	frontmatter = make(map[interface{}]interface{})
 
 	buf := bytes.NewBuffer(*body)
-	stared, ended := false, false
+	started, ended := false, false
 	for {
 		line, err := buf.ReadString('\n')
 		if err != nil {
@@ -68,16 +68,16 @@ func parseFrontmatter(body *[]byte) (frontmatter map[interface{}]interface{}) {
 		}
 
 		if line == "---\n" {
-			if stared == false {
-				stared = true
-			} else if ended == false {
+			if !started {
+				started = true
+			} else if !ended {
 				ended = true
 			}
 		}
-		if stared != false {
+		if started {
 			frontmatterBuf.Write([]byte(line))
 		}
-		if ended != false {
+		if ended {
 			break
 		}
 	}
