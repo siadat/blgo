@@ -244,21 +244,6 @@ func main() {
 	mdFiles := flag.Args()[:]
 	buildAll(*templatesFlag, *outPathFlag, mdFiles)
 
-	if serveFlag != nil {
-		if assetsFlag != nil {
-			fs := http.FileServer(http.Dir(*assetsFlag))
-			http.Handle("/assets/", http.StripPrefix("/assets/", fs))
-		}
-
-		fs := http.FileServer(http.Dir(*outPathFlag))
-		http.Handle("/", fs)
-
-		fmt.Fprintf(os.Stderr, "Listening on http://%s\n", *serveFlag)
-		if err := http.ListenAndServe(*serveFlag, nil); err != nil {
-			panic(err)
-		}
-	}
-
 	if *watchFlag {
 		watcher, err := fsnotify.NewWatcher()
 		if err != nil {
@@ -283,7 +268,7 @@ func main() {
 				select {
 				case event := <-watcher.Events:
 					log.Println(event.Op, event.Name)
-					if event.Op&fsnotify.Remove == fsnotify.Remove {
+					if event.Op&fsnotify.Remove == fsnotify.Remove || event.Op&fsnotify.Write == fsnotify.Write {
 						buildAll(*templatesFlag, *outPathFlag, mdFiles)
 						watcher.Add(event.Name)
 					}
@@ -292,7 +277,23 @@ func main() {
 				}
 			}
 		}()
+	}
 
+	if serveFlag != nil {
+		if assetsFlag != nil {
+			fs := http.FileServer(http.Dir(*assetsFlag))
+			http.Handle("/assets/", http.StripPrefix("/assets/", fs))
+		}
+
+		fs := http.FileServer(http.Dir(*outPathFlag))
+		http.Handle("/", fs)
+
+		fmt.Fprintf(os.Stderr, "Listening on http://%s\n", *serveFlag)
+		if err := http.ListenAndServe(*serveFlag, nil); err != nil {
+			panic(err)
+		}
+	} else if watchFlag != nil {
+		// blocking for watch
 		done := make(chan bool)
 		<-done
 	}
