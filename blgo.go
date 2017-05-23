@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"encoding/xml"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -91,12 +93,12 @@ func parseFrontmatter(body *[]byte) (frontmatter map[interface{}]interface{}) {
 	return frontmatter
 }
 
-func buildAll(cmd string, mdFiles []string) {
+func buildAll(templatesPath, outputPath string, mdFiles []string) {
 	log.SetFlags(log.LstdFlags)
 	tmpl := template.Must(template.ParseFiles(
-		"templates/post.tmpl.html",
-		"templates/index.tmpl.html",
-		"templates/index.tmpl.xml",
+		path.Join(templatesPath, "post.tmpl.html"),
+		path.Join(templatesPath, "index.tmpl.html"),
+		path.Join(templatesPath, "index.tmpl.xml"),
 	))
 
 	var outfile *os.File
@@ -139,7 +141,7 @@ func buildAll(cmd string, mdFiles []string) {
 			}
 		}
 
-		outfile, err = os.Create(outputFilename(mdFilename, ".html"))
+		outfile, err = os.Create(path.Join(outputPath, outputFilename(mdFilename, ".html")))
 		if err != nil {
 			log.Fatalln("os.Create:", err)
 		}
@@ -169,7 +171,7 @@ func buildAll(cmd string, mdFiles []string) {
 	sort.Sort(sort.Reverse(index))
 
 	// index.html
-	if outfile, err = os.Create("index.html"); err != nil {
+	if outfile, err = os.Create(path.Join(outputPath, "index.html")); err != nil {
 		log.Fatalln("os.Create:", err)
 	}
 	if err := tmpl.ExecuteTemplate(outfile, "index.tmpl.html", index); err != nil {
@@ -178,7 +180,7 @@ func buildAll(cmd string, mdFiles []string) {
 	log.Println("index.html")
 
 	// index.xml
-	if outfile, err = os.Create("index.xml"); err != nil {
+	if outfile, err = os.Create(path.Join(outputPath, "index.xml")); err != nil {
 		log.Fatalln("os.Create:", err)
 	}
 	if err := tmpl.ExecuteTemplate(outfile, "index.tmpl.xml", index); err != nil {
@@ -188,26 +190,60 @@ func buildAll(cmd string, mdFiles []string) {
 }
 
 func main() {
-	flag.Parse()
 	log.SetFlags(log.Lshortfile)
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] posts...\n", os.Args[0])
+		flag.PrintDefaults()
+	}
 
-	if flag.NArg() <= 1 {
-		log.Print("Usage: $0 build")
-		log.Print("$0 build src/*.md")
-		log.Print("$0 watch src/*.md")
+	watchFlag := flag.Bool("watch", false, "tries to rebuild the src on change")
+	serveFlag := flag.String("serve", "", "listening address for serving the blog")
+	outPathFlag := flag.String("output", "generated", "output path")
+	assetsFlag := flag.String("assets", "", "path to the assets files for serving")
+	templatesFlag := flag.String("templates", "", "path to the templates directory")
+
+	_ = serveFlag
+	flag.Parse()
+
+	if len(os.Args) <= 1 {
+		flag.Usage()
 		os.Exit(1)
 	}
 
-	cmd := flag.Arg(0)
-	mdFiles := flag.Args()[1:]
-	os.MkdirAll("post", 0777)
-	log.Printf("started with cmd=%q", cmd)
+	cwd, _ := os.Getwd()
 
-	switch cmd {
-	case "build":
-		buildAll(cmd, mdFiles)
-	case "watch":
-		go buildAll(cmd, mdFiles)
+	// check output path
+	if stat, err := os.Stat(path.Join(cwd, *outPathFlag)); err != nil && !os.IsExist(err) || !stat.IsDir() {
+		err := os.Mkdir(*outPathFlag, 0755)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "specified path \"%s\" for output couldn't be created: %s\n", *outPathFlag, err)
+			os.Exit(1)
+		}
+	}
+
+	// check post in output path
+	postPath := path.Join(cwd, *outPathFlag, "post")
+	if stat, err := os.Stat(postPath); err != nil && !os.IsExist(err) || !stat.IsDir() {
+		err := os.Mkdir(postPath, 0755)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "path \"%s\" couldn't be created: %s\n", postPath, err)
+			os.Exit(1)
+		}
+	}
+
+	// check assets path
+	if assetsFlag != nil {
+		// check out assetPath
+		if stat, err := os.Stat(path.Join(cwd, *assetsFlag)); err != nil && !os.IsExist(err) || !stat.IsDir() {
+			fmt.Fprintf(os.Stderr, "specified path \"%s\" for assets doesn't exists or is not a directory\n", *assetsFlag)
+			os.Exit(1)
+		}
+	}
+
+	mdFiles := flag.Args()[:]
+	buildAll(*templatesFlag, *outPathFlag, mdFiles)
+
+	if *watchFlag {
 		watcher, err := fsnotify.NewWatcher()
 		if err != nil {
 			log.Fatal(err)
@@ -221,7 +257,7 @@ func main() {
 			}
 		}
 		for _, filename := range []string{"index.tmpl.html", "index.tmpl.xml", "post.tmpl.html"} {
-			if err := watcher.Add("templates/" + filename); err != nil {
+			if err := watcher.Add(path.Join(*templatesFlag, filename)); err != nil {
 				log.Fatal(err)
 			}
 		}
@@ -232,7 +268,7 @@ func main() {
 				case event := <-watcher.Events:
 					log.Println(event.Op, event.Name)
 					if event.Op&fsnotify.Remove == fsnotify.Remove {
-						buildAll(cmd, mdFiles)
+						buildAll(*templatesFlag, *outPathFlag, mdFiles)
 						watcher.Add(event.Name)
 					}
 				case err := <-watcher.Errors:
