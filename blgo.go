@@ -222,7 +222,7 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 func main() {
 	log.SetFlags(log.Lshortfile)
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "Usage: %s [options] posts...\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "Usage: %s [options] sources\n", os.Args[0])
 		flag.PrintDefaults()
 	}
 
@@ -270,8 +270,8 @@ func main() {
 		}
 	}
 
-	source := flag.Arg(0)
-	buildAll(*templatesFlag, *outPathFlag, source)
+	sourcePath := flag.Arg(0)
+	buildAll(*templatesFlag, *outPathFlag, sourcePath)
 
 	if *watchFlag {
 		watcher, err := fsnotify.NewWatcher()
@@ -280,7 +280,7 @@ func main() {
 		}
 		defer watcher.Close()
 
-		files, err := sourceFiles(source)
+		files, err := sourceFiles(sourcePath)
 		if err != nil {
 			log.Fatal("ioutil.ReadFile:", err)
 		}
@@ -302,7 +302,7 @@ func main() {
 				case event := <-watcher.Events:
 					log.Println(event.Op, event.Name)
 					if event.Op&fsnotify.Remove == fsnotify.Remove || event.Op&fsnotify.Write == fsnotify.Write {
-						buildAll(*templatesFlag, *outPathFlag, source)
+						buildAll(*templatesFlag, *outPathFlag, sourcePath)
 						watcher.Add(event.Name)
 					}
 				case err := <-watcher.Errors:
