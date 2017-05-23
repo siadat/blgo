@@ -43,7 +43,7 @@ type Post struct {
 
 type Index struct {
 	Title     string
-	Posts     []Post
+	Posts     []*Post
 	URL       string
 	XMLURL    string
 	UpdatedAt time.Time
@@ -94,7 +94,12 @@ func parseFrontmatter(body *[]byte) (frontmatter map[interface{}]interface{}) {
 	return frontmatter
 }
 
-func buildAll(templatesPath, outputPath string, mdFiles []string) {
+func sourceFiles(sourcePath string) (filenames []string, err error) {
+	filenames, err = filepath.Glob(path.Join(sourcePath, "*.md"))
+	return
+}
+
+func buildAll(templatesPath, outputPath string, sourcePath string) {
 	log.SetFlags(log.LstdFlags)
 	tmpl := template.Must(template.ParseFiles(
 		path.Join(templatesPath, "post.tmpl.html"),
@@ -106,20 +111,38 @@ func buildAll(templatesPath, outputPath string, mdFiles []string) {
 	var err error
 	var body []byte
 
+	files, err := sourceFiles(sourcePath)
+	if err != nil {
+		log.Fatal("ioutil.ReadFile:", err)
+	}
+
+	indexFilename := path.Join(sourcePath, "_index.md")
+	indexBody, err := ioutil.ReadFile(indexFilename)
+	if err != nil {
+		log.Fatal("error reading '_index.md' in source:", err)
+	}
+
+	indexFrontmatter := parseFrontmatter(&indexBody)
+
 	index := Index{
-		Title:     "Sina Siadat",
-		URL:       "https://siadat.github.io/",
-		XMLURL:    "https://siadat.github.io/index.xml",
+		Title:     indexFrontmatter["title"].(string),
+		URL:       indexFrontmatter["url"].(string),
+		XMLURL:    indexFrontmatter["xmlurl"].(string),
 		UpdatedAt: time.Now(),
 	}
 
-	for _, mdFilename := range mdFiles {
-		body, err = ioutil.ReadFile(mdFilename)
+	for _, filename := range files {
+		// skip the _index.md
+		if filepath.Base(filename) == "_index.md" {
+			continue
+		}
+
+		body, err = ioutil.ReadFile(filename)
 		if err != nil {
 			log.Fatal("ioutil.ReadFile:", err)
 		}
 
-		log.Println(mdFilename)
+		log.Println(filename)
 		var title string
 		var draft bool
 		var date time.Time
@@ -142,7 +165,7 @@ func buildAll(templatesPath, outputPath string, mdFiles []string) {
 			}
 		}
 
-		outfile, err = os.Create(path.Join(outputPath, outputFilename(mdFilename, ".html")))
+		outfile, err = os.Create(path.Join(outputPath, outputFilename(filename, ".html")))
 		if err != nil {
 			log.Fatalln("os.Create:", err)
 		}
@@ -151,19 +174,25 @@ func buildAll(templatesPath, outputPath string, mdFiles []string) {
 		xml.EscapeText(&descBuf, bytes.Trim(body[:200], " \n\r"))
 		xml.EscapeText(&titleBuf, []byte(title))
 
-		index.Posts = append(index.Posts, Post{
+		index.Posts = append(index.Posts, &Post{
 			Body:         string(blackfriday.MarkdownOptions(body, renderer, blackfriday.Options{Extensions: commonExtensions})),
 			Date:         date,
-			Link:         index.URL + outputFilename(mdFilename, ".html"),
-			RelativeLink: "/" + outputFilename(mdFilename, ".html"),
+			Link:         index.URL + outputFilename(filename, ".html"),
+			RelativeLink: "/" + outputFilename(filename, ".html"),
 			Title:        title,
-			BlogTitle:    "Sina Siadat",
 			XMLDesc:      descBuf.String(),
 			XMLTitle:     titleBuf.String(),
 			Draft:        draft,
 		})
 
-		err = tmpl.ExecuteTemplate(outfile, "post.tmpl.html", index.Posts[len(index.Posts)-1])
+		err = tmpl.ExecuteTemplate(outfile, "post.tmpl.html",
+			&struct {
+				*Post
+				Index *Index
+			}{
+				Post:  index.Posts[len(index.Posts)-1],
+				Index: &index,
+			})
 		if err != nil {
 			log.Fatalln("tmpl.ExecuteTemplate:", err)
 		}
@@ -241,8 +270,8 @@ func main() {
 		}
 	}
 
-	mdFiles := flag.Args()[:]
-	buildAll(*templatesFlag, *outPathFlag, mdFiles)
+	source := flag.Arg(0)
+	buildAll(*templatesFlag, *outPathFlag, source)
 
 	if *watchFlag {
 		watcher, err := fsnotify.NewWatcher()
@@ -251,7 +280,11 @@ func main() {
 		}
 		defer watcher.Close()
 
-		for _, filename := range mdFiles {
+		files, err := sourceFiles(source)
+		if err != nil {
+			log.Fatal("ioutil.ReadFile:", err)
+		}
+		for _, filename := range files {
 			log.Println("adding", filename)
 			if err := watcher.Add(filename); err != nil {
 				log.Fatal(err)
@@ -269,7 +302,7 @@ func main() {
 				case event := <-watcher.Events:
 					log.Println(event.Op, event.Name)
 					if event.Op&fsnotify.Remove == fsnotify.Remove || event.Op&fsnotify.Write == fsnotify.Write {
-						buildAll(*templatesFlag, *outPathFlag, mdFiles)
+						buildAll(*templatesFlag, *outPathFlag, source)
 						watcher.Add(event.Name)
 					}
 				case err := <-watcher.Errors:
@@ -279,8 +312,8 @@ func main() {
 		}()
 	}
 
-	if serveFlag != nil {
-		if assetsFlag != nil {
+	if serveFlag != nil && *serveFlag != "" {
+		if assetsFlag != nil && *assetsFlag != "" {
 			fs := http.FileServer(http.Dir(*assetsFlag))
 			http.Handle("/assets/", http.StripPrefix("/assets/", fs))
 		}
@@ -292,7 +325,7 @@ func main() {
 		if err := http.ListenAndServe(*serveFlag, nil); err != nil {
 			panic(err)
 		}
-	} else if watchFlag != nil {
+	} else if *watchFlag {
 		// blocking for watch
 		done := make(chan bool)
 		<-done
