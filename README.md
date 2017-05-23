@@ -9,13 +9,12 @@
 
 Bl, go!
 
-    $ blgo watch src/*.md
-    $ blgo build src/*.md
+    $ blgo --serve 127.0.0.1:4040 --assets example/assets -watch -templates example/templates example/src/*.md
 
-The following files must exist in current directory:
+The following files must exist in templates:
 
     templates/post.tmpl.html
     templates/index.tmpl.html
     templates/index.tmpl.xml
 
-See [my blog](https://github.com/siadat/siadat.github.io) for an example.
+See [my blog](https://github.com/siadat/siadat.github.io) for a live example.
