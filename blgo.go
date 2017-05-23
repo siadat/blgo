@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -153,8 +154,8 @@ func buildAll(templatesPath, outputPath string, mdFiles []string) {
 		index.Posts = append(index.Posts, Post{
 			Body:         string(blackfriday.MarkdownOptions(body, renderer, blackfriday.Options{Extensions: commonExtensions})),
 			Date:         date,
-			Link:         index.URL + outputFilename(mdFilename, ""),
-			RelativeLink: "/" + outputFilename(mdFilename, ""),
+			Link:         index.URL + outputFilename(mdFilename, ".html"),
+			RelativeLink: "/" + outputFilename(mdFilename, ".html"),
 			Title:        title,
 			BlogTitle:    "Sina Siadat",
 			XMLDesc:      descBuf.String(),
@@ -242,6 +243,21 @@ func main() {
 
 	mdFiles := flag.Args()[:]
 	buildAll(*templatesFlag, *outPathFlag, mdFiles)
+
+	if serveFlag != nil {
+		if assetsFlag != nil {
+			fs := http.FileServer(http.Dir(*assetsFlag))
+			http.Handle("/assets/", http.StripPrefix("/assets/", fs))
+		}
+
+		fs := http.FileServer(http.Dir(*outPathFlag))
+		http.Handle("/", fs)
+
+		fmt.Fprintf(os.Stderr, "Listening on http://%s\n", *serveFlag)
+		if err := http.ListenAndServe(*serveFlag, nil); err != nil {
+			panic(err)
+		}
+	}
 
 	if *watchFlag {
 		watcher, err := fsnotify.NewWatcher()
