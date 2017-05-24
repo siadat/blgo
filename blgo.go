@@ -57,9 +57,9 @@ func outputFilename(filename, ext string) string {
 	return filepath.Join("post", filename)
 }
 
-func parseFrontmatter(body *[]byte) (frontmatter map[interface{}]interface{}) {
+func parseFrontmatter(body *[]byte) map[string]interface{} {
 	var frontmatterBuf bytes.Buffer
-	frontmatter = make(map[interface{}]interface{})
+	frontmatter := make(map[string]interface{})
 
 	buf := bytes.NewBuffer(*body)
 	started, ended := false, false
