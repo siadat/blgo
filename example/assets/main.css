@@ -1,0 +1,108 @@
+body {
+  font-family: Helvetica, Arial, sans-serif;
+  font-size:14.95px;
+  background-color:#fff;
+}
+#everything {
+        margin:0 auto;
+        max-width: 630px;
+}
+h1, h2, h3, h4, h5, h6 {
+  color:#010101;
+  line-height:1.5em;
+}
+a {
+  color:#020202;
+  font-weight:bold;
+  text-decoration:none;
+}
+a:hover {
+  text-decoration:underline;
+}
+article a {
+  color:#010101;
+  text-decoration:none;
+}
+.list a:visited {
+  color:#030303;
+}
+body {
+  padding:50px 50px 150px 50px;
+  line-height: 1.5em;
+}
+article {
+  padding:3px 0;
+}
+hr {
+  border:0;
+  border-top:1px solid #010101;
+}
+.entry-meta {
+  color:#555;
+}
+.col {
+  width:80px;
+  display:inline-block;
+}
+
+@media (max-width: 600px) {
+  .col {
+    display: none;
+  }
+}
+
+code {
+  font-weight:bold;
+}
+pre,
+code {
+  font-family: Menlo, monospace;
+  font-size: 14px;
+}
+pre {
+  line-height: 1.4em;
+}
+pre .comment {
+  color: #006600;
+}
+pre .highlight,
+pre .highlight-comment,
+pre .selection-highlight,
+pre .selection-highlight-comment {
+  background: #FFFF00;
+}
+pre .selection,
+pre .selection-comment {
+  background: #FF9632;
+}
+pre .ln {
+  color: #999;
+}
+pre {
+  background: #EFEFEF;
+  padding: 10px;
+  border-radius: 5px;
+  overflow-y: auto;
+}
+
+.output pre {
+  background:#d9efd9;
+}
+
+.shell pre {
+  background:#272727;
+  color:#fff;
+}
+
+.notebox {
+  background-color:#fff;
+  border-left:4px solid #333;
+  padding:0 10px;
+}
+
+blockquote {
+  margin:0;
+  padding:0 20px;
+  border-left:10px solid #eee;
+  color:#006600;
+}

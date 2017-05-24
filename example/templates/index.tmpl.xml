@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>{{.Title}}</title>
+    <link>{{.URL}}</link>
+    <description>Recent content on {{.Title}}</description>
+    <generator>Blogo</generator>
+    <language>en-us</language>
+    {{with .UpdatedAt}}<lastBuildDate>{{.Format "Mon, 02 Jan 2006 15:04:05 -0700"}}</lastBuildDate>{{end}}
+    <atom:link href="{{.XMLURL}}" rel="self" type="application/rss+xml" />
+    {{range .Posts}}
+    <item>
+      <title>{{.Title}}</title>
+      <link>{{.Link}}</link>
+      {{with .Date}}<pubDate>{{.Format "Mon, 02 Jan 2006 15:04:05 -0700"}}</pubDate>{{end}}
+      <guid>{{.Link}}</guid>
+      <description>{{.XMLDesc}}</description>
+    </item>
+    {{end}}
+  </channel>
+</rss>

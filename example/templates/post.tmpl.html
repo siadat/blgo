@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Blogo" />
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" inline href="/assets/normalize.css">
+  <link rel="stylesheet" inline href="/assets/main.css">
+  <link rel="alternate" href="/index.xml" type="application/rss+xml" title="Sina Siadat">
+  <title>{{.Title}}</title>
+</head>
+<body>
+  <div id="everything">
+  <header role="banner">
+             <b><a href="/">{{.Index.Title}}</a></b>
+  </header>
+
+  <hr>
+
+  <main role="main">
+    <article itemscope itemtype="http://schema.org/BlogPosting">
+      <h1 class="entry-title" itemprop="headline">{{.Title}}</h1>
+      <section itemprop="entry-text">
+        {{.Body}}
+      </section>
+    </article>
+  </main>
+
+  <hr>
+  <!--
+  <script type="text/javascript" src="//www.redditstatic.com/button/button3.js"></script>
+  <hr>
+  -->
+
+  <!--
+  <div class="entry-meta">
+    Please share this post if you liked it.
+  </div>
+  -->
+  {{with .Date}}
+  <div class="entry-meta">
+    <time itemprop="datePublished" datetime="{{.Format "January 02, 2006"}}">
+      {{.Format "January 02, 2006"}}
+    </time>
+  </div>
+  {{end}}
+
+  <!-- calq -->
+  <script type="text/javascript">
+  if (window.location.hostname != "localhost") {
+    (function (e, t) { if (!t.__SV) { window.calq = t; var n = e.createElement("script"); n.type = "text/javascript"; n.src = "http" + ("https:" === e.location.protocol ? "s" : "") + '://api.calq.io/lib/js/core-1.0.js'; n.async = !0; var r = e.getElementsByTagName("script")[0]; r.parentNode.insertBefore(n, r); t.init = function (e, o) { if (t.writeKey) return; t.writeKey = e; t._initOptions = o; t._execQueue = []; m = "action.track action.trackSale action.trackHTMLLink action.trackPageView action.setGlobalProperty user.profile user.identify user.clear".split(" "); for (var n = 0; n < m.length; n++) { var f = function () { var r = m[n]; var s = function () { t._execQueue.push({ m: r, args: arguments }) }; var i = r.split("."); if (i.length == 2) { if (!t[i[0]]) { t[i[0]] = [] } t[i[0]][i[1]] = s } else { t[r] = s } }(); } }; t.__SV = 1 } })(document, window.calq || []);
+    calq.init("5bfaf3519521157e5b8274b63c83d728");
+    calq.action.trackPageView();   // [Optional] Leave if you want to automatically create a "Page View" action
+  }
+  </script>
+
+</body>
+</html>
