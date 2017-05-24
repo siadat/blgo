@@ -221,6 +221,23 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 	log.Println("index.xml")
 }
 
+type noListingHandler struct {
+	h      http.Handler
+	suffix string
+}
+
+func NoListing(suffix string, h http.Handler) http.Handler {
+	return &noListingHandler{h: h, suffix: suffix}
+}
+func (n *noListingHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// don't list files
+	if strings.HasSuffix(r.URL.Path, n.suffix) {
+		http.NotFound(w, r)
+		return
+	}
+	n.h.ServeHTTP(w, r)
+}
+
 func main() {
 	log.SetFlags(log.Lshortfile)
 	flag.Usage = func() {
@@ -315,11 +332,11 @@ func main() {
 
 	if serveFlag != nil && *serveFlag != "" {
 		if assetsFlag != nil && *assetsFlag != "" {
-			fs := http.FileServer(http.Dir(*assetsFlag))
+			fs := NoListing("/", http.FileServer(http.Dir(*assetsFlag)))
 			http.Handle("/assets/", http.StripPrefix("/assets/", fs))
 		}
 
-		fs := http.FileServer(http.Dir(*outPathFlag))
+		fs := NoListing("/post/", http.FileServer(http.Dir(*outPathFlag)))
 		http.Handle("/", fs)
 
 		fmt.Fprintf(os.Stderr, "Listening on http://%s\n", *serveFlag)
