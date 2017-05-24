@@ -9,7 +9,7 @@
 
 Bl, go!
 
-    $ blgo --serve 127.0.0.1:4040 --assets example/assets -watch -templates example/templates example/src
+    $ blgo --serve 127.0.0.1:4040 --assets example/assets --watch --templates example/templates example/src
 
 The following files must exist in templates:
 
