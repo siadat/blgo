@@ -3,9 +3,8 @@ package main
 import (
 	"bytes"
 
-	"golang.org/x/tools/godoc"
-
 	"github.com/russross/blackfriday"
+	"golang.org/x/tools/godoc"
 )
 
 type Renderer struct {
