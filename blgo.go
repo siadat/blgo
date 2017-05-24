@@ -160,9 +160,6 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 		if v, ok := frontmatter["draft"]; ok {
 			draft = v.(bool)
 		}
-		if draft {
-			continue
-		}
 
 		if v, ok := frontmatter["date"]; ok {
 			if date, err = time.Parse(shortTimeFormat, v.(string)); err != nil {
