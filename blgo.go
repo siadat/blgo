@@ -24,7 +24,6 @@ import (
 
 const (
 	shortTimeFormat = "2006-01-02"
-	longTimeFormat  = "January 02, 2006"
 )
 
 type Post struct {
@@ -232,7 +231,6 @@ func main() {
 	assetsFlag := flag.String("assets", "", "path to the assets files for serving")
 	templatesFlag := flag.String("templates", "", "path to the templates directory")
 
-	_ = serveFlag
 	flag.Parse()
 
 	if len(os.Args) <= 1 {
