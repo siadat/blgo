@@ -24,6 +24,12 @@ import (
 
 const (
 	shortTimeFormat = "2006-01-02"
+
+	postTmplFilename  = "post.tmpl.html"
+	indexTmplFilename = "index.tmpl.html"
+	feedTmplFilename  = "index.tmpl.xml"
+
+	settingsFilename = "_index.md"
 )
 
 type Post struct {
@@ -101,9 +107,9 @@ func sourceFiles(sourcePath string) (filenames []string, err error) {
 func buildAll(templatesPath, outputPath string, sourcePath string) {
 	log.SetFlags(log.LstdFlags)
 	tmpl := template.Must(template.ParseFiles(
-		path.Join(templatesPath, "post.tmpl.html"),
-		path.Join(templatesPath, "index.tmpl.html"),
-		path.Join(templatesPath, "index.tmpl.xml"),
+		path.Join(templatesPath, postTmplFilename),
+		path.Join(templatesPath, indexTmplFilename),
+		path.Join(templatesPath, feedTmplFilename),
 	))
 
 	var outfile *os.File
@@ -115,10 +121,10 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 		log.Fatal("ioutil.ReadFile:", err)
 	}
 
-	indexFilename := path.Join(sourcePath, "_index.md")
+	indexFilename := path.Join(sourcePath, settingsFilename)
 	indexBody, err := ioutil.ReadFile(indexFilename)
 	if err != nil {
-		log.Fatal("error reading '_index.md' in source:", err)
+		log.Fatalf("error reading %q in source: %v", settingsFilename, err)
 	}
 
 	indexFrontmatter := parseFrontmatter(&indexBody)
@@ -131,8 +137,8 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 	}
 
 	for _, filename := range files {
-		// skip the _index.md
-		if filepath.Base(filename) == "_index.md" {
+		// skip the settings file
+		if filepath.Base(filename) == settingsFilename {
 			continue
 		}
 
@@ -184,7 +190,7 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 			Draft:        draft,
 		})
 
-		err = tmpl.ExecuteTemplate(outfile, "post.tmpl.html",
+		err = tmpl.ExecuteTemplate(outfile, postTmplFilename,
 			&struct {
 				*Post
 				Index *Index
@@ -203,7 +209,7 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 	if outfile, err = os.Create(path.Join(outputPath, "index.html")); err != nil {
 		log.Fatalln("os.Create:", err)
 	}
-	if err := tmpl.ExecuteTemplate(outfile, "index.tmpl.html", index); err != nil {
+	if err := tmpl.ExecuteTemplate(outfile, indexTmplFilename, index); err != nil {
 		log.Fatalln("tmpl.ExecuteTemplate:", err)
 	}
 	log.Println("index.html")
@@ -212,7 +218,7 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 	if outfile, err = os.Create(path.Join(outputPath, "index.xml")); err != nil {
 		log.Fatalln("os.Create:", err)
 	}
-	if err := tmpl.ExecuteTemplate(outfile, "index.tmpl.xml", index); err != nil {
+	if err := tmpl.ExecuteTemplate(outfile, feedTmplFilename, index); err != nil {
 		log.Fatalln("tmpl.ExecuteTemplate:", err)
 	}
 	log.Println("index.xml")
@@ -288,7 +294,7 @@ func main() {
 				log.Fatal(err)
 			}
 		}
-		for _, filename := range []string{"index.tmpl.html", "index.tmpl.xml", "post.tmpl.html"} {
+		for _, filename := range []string{indexTmplFilename, feedTmplFilename, postTmplFilename} {
 			if err := watcher.Add(path.Join(*templatesFlag, filename)); err != nil {
 				log.Fatal(err)
 			}
