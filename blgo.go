@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -17,9 +18,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	yaml "gopkg.in/yaml.v2"
-
 	"github.com/russross/blackfriday"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -32,20 +32,81 @@ const (
 	settingsFilename = "_index.md"
 )
 
+// Post represents a single blog post
 type Post struct {
-	Body         string
-	Date         time.Time
-	Description  string
-	GUID         string
-	Link         string
-	RelativeLink string
-	Title        string
-	BlogTitle    string
-	XMLDesc      string
-	XMLTitle     string
-	Draft        bool
+	Index          *Index
+	Slug           string
+	OutputFilename string
+	Body           string
+	Date           time.Time
+	Description    string
+	GUID           string
+	Link           string
+	RelativeLink   string
+	Title          string
+	BlogTitle      string
+	XMLDesc        string
+	XMLTitle       string
+	Draft          bool
 }
 
+// ReadFile will fill the post from given filename
+func (p *Post) ReadFile(filename string) error {
+	body, err := ioutil.ReadFile(filename)
+	if err == nil {
+		return p.Read(filename, body)
+	}
+	return err
+}
+
+// Read will fill the post from given byte string
+func (p *Post) Read(filename string, body []byte) error {
+	var title string
+	var draft bool
+	var date time.Time
+	var err error
+
+	frontmatter, err := parseFrontmatter(&body)
+	if err != nil {
+		return err
+	}
+
+	if v, ok := frontmatter["title"]; ok {
+		title = v.(string)
+	} else {
+		return errors.New("could not read the title from post")
+	}
+
+	if v, ok := frontmatter["draft"]; ok {
+		draft = v.(bool)
+	}
+
+	if v, ok := frontmatter["date"]; ok {
+		if date, err = time.Parse(shortTimeFormat, v.(string)); err != nil {
+			return err
+		}
+	}
+
+	var descBuf, titleBuf bytes.Buffer
+	xml.EscapeText(&descBuf, bytes.Trim(body[:200], " \n\r"))
+	xml.EscapeText(&titleBuf, []byte(title))
+
+	p.Slug = strings.TrimSuffix(filepath.Base(filename), ".md")
+	p.OutputFilename = path.Join("post", p.Slug+".html")
+	p.Body = string(blackfriday.MarkdownOptions(body, renderer, blackfriday.Options{Extensions: commonExtensions}))
+	p.Title = title
+	p.Date = date
+	p.Link = path.Join(p.Index.URL, "post", p.Slug+".html")
+	p.RelativeLink = path.Join("/", "post", p.Slug+".html")
+	p.XMLDesc = descBuf.String()
+	p.XMLTitle = titleBuf.String()
+	p.Draft = draft
+
+	return nil
+}
+
+// Index represents global settings/variables and the index of the posts
+// the index.html will generated from Index
 type Index struct {
 	Title     string
 	Posts     []*Post
@@ -54,56 +115,66 @@ type Index struct {
 	UpdatedAt time.Time
 }
 
-func (index Index) Len() int           { return len(index.Posts) }
-func (index Index) Swap(i, j int)      { index.Posts[i], index.Posts[j] = index.Posts[j], index.Posts[i] }
-func (index Index) Less(i, j int) bool { return index.Posts[i].Date.Before(index.Posts[j].Date) }
+func (index *Index) Len() int           { return len(index.Posts) }
+func (index *Index) Swap(i, j int)      { index.Posts[i], index.Posts[j] = index.Posts[j], index.Posts[i] }
+func (index *Index) Less(i, j int) bool { return index.Posts[i].Date.Before(index.Posts[j].Date) }
 
-func outputFilename(filename, ext string) string {
-	filename = strings.TrimSuffix(filepath.Base(filename), ".md") + ext
-	return filepath.Join("post", filename)
+// ReadFrontmatterFile will fill the index frontmatter from given filename
+func (index *Index) ReadFrontmatterFile(filename string) error {
+	body, err := ioutil.ReadFile(filename)
+	if err == nil {
+		return index.ReadFrontmatter(body)
+	}
+	return err
 }
 
-func parseFrontmatter(body *[]byte) map[string]interface{} {
-	var frontmatterBuf bytes.Buffer
-	frontmatter := make(map[string]interface{})
+// ReadFrontmatter will fill the index frontmatter from given data
+func (index *Index) ReadFrontmatter(body []byte) error {
+	indexFrontmatter, err := parseFrontmatter(&body)
+	if err != nil {
+		return err
+	}
 
+	index.Title = indexFrontmatter["title"].(string)
+	index.URL = indexFrontmatter["url"].(string)
+	index.XMLURL = indexFrontmatter["xmlurl"].(string)
+	index.UpdatedAt = time.Now()
+	return nil
+}
+
+func parseFrontmatter(body *[]byte) (map[string]interface{}, error) {
+	var frontmatterBuf bytes.Buffer
 	buf := bytes.NewBuffer(*body)
-	started, ended := false, false
+	started := false
 	for {
 		line, err := buf.ReadString('\n')
 		if err != nil {
-			log.Fatalln("Could not parse frontmatter:", err)
+			return nil, err
 		}
 
 		if line == "---\n" {
-			if !started {
-				started = true
-			} else if !ended {
-				ended = true
+			if started {
+				break
 			}
+			started = true
 		}
 		if started {
 			frontmatterBuf.Write([]byte(line))
 		}
-		if ended {
-			break
-		}
 	}
 
-	if err := yaml.Unmarshal(frontmatterBuf.Bytes(), &frontmatter); err != nil {
-		log.Fatalln("yaml.Unmarshal:", err)
-	}
-
-	// rest of the bytes:
-	*body = buf.Bytes()
-	return frontmatter
+	*body = buf.Bytes() // rest of the bytes
+	frontmatter := make(map[string]interface{})
+	return frontmatter, yaml.Unmarshal(frontmatterBuf.Bytes(), &frontmatter)
 }
 
-func sourceFiles(sourcePath string) (filenames []string, err error) {
+// listSourceFiles lists files that has ".md" extension in specified path
+func listSourceFiles(sourcePath string) (filenames []string, err error) {
 	filenames, err = filepath.Glob(path.Join(sourcePath, "*.md"))
 	return
 }
 
+// buildAll builds the whole blog
 func buildAll(templatesPath, outputPath string, sourcePath string) {
 	log.SetFlags(log.LstdFlags)
 	tmpl := template.Must(template.ParseFiles(
@@ -112,95 +183,37 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 		path.Join(templatesPath, feedTmplFilename),
 	))
 
-	var outfile *os.File
-	var err error
-	var body []byte
-
-	files, err := sourceFiles(sourcePath)
+	files, err := listSourceFiles(sourcePath)
 	if err != nil {
 		log.Fatal("ioutil.ReadFile:", err)
 	}
 
 	indexFilename := path.Join(sourcePath, settingsFilename)
-	indexBody, err := ioutil.ReadFile(indexFilename)
-	if err != nil {
-		log.Fatalf("error reading %q in source: %v", settingsFilename, err)
+	index := &Index{}
+	if err := index.ReadFrontmatterFile(indexFilename); err != nil {
+		log.Fatalf("error in reading frontmatter of %q: %v", settingsFilename, err)
 	}
 
-	indexFrontmatter := parseFrontmatter(&indexBody)
-
-	index := Index{
-		Title:     indexFrontmatter["title"].(string),
-		URL:       indexFrontmatter["url"].(string),
-		XMLURL:    indexFrontmatter["xmlurl"].(string),
-		UpdatedAt: time.Now(),
-	}
+	var outfile *os.File
 
 	for _, filename := range files {
 		// skip the settings file
 		if filepath.Base(filename) == settingsFilename {
 			continue
 		}
-
-		body, err = ioutil.ReadFile(filename)
-		if err != nil {
-			log.Fatal("ioutil.ReadFile:", err)
+		post := &Post{Index: index}
+		if err := post.ReadFile(filename); err != nil {
+			log.Fatalln("post.ReadFile:", err)
 		}
+		index.Posts = append(index.Posts, post)
 
-		log.Println(filename)
-		var title string
-		var draft bool
-		var date time.Time
-		frontmatter := parseFrontmatter(&body)
-
-		if v, ok := frontmatter["title"]; ok {
-			title = v.(string)
-		}
-
-		if v, ok := frontmatter["draft"]; ok {
-			draft = v.(bool)
-		}
-		if draft {
-			continue
-		}
-
-		if v, ok := frontmatter["date"]; ok {
-			if date, err = time.Parse(shortTimeFormat, v.(string)); err != nil {
-				log.Println("time.Parse:", err)
-			}
-		}
-
-		outfile, err = os.Create(path.Join(outputPath, outputFilename(filename, ".html")))
-		if err != nil {
+		if outfile, err = os.Create(path.Join(outputPath, post.OutputFilename)); err != nil {
 			log.Fatalln("os.Create:", err)
 		}
-
-		var descBuf, titleBuf bytes.Buffer
-		xml.EscapeText(&descBuf, bytes.Trim(body[:200], " \n\r"))
-		xml.EscapeText(&titleBuf, []byte(title))
-
-		index.Posts = append(index.Posts, &Post{
-			Body:         string(blackfriday.MarkdownOptions(body, renderer, blackfriday.Options{Extensions: commonExtensions})),
-			Date:         date,
-			Link:         index.URL + outputFilename(filename, ".html"),
-			RelativeLink: "/" + outputFilename(filename, ".html"),
-			Title:        title,
-			XMLDesc:      descBuf.String(),
-			XMLTitle:     titleBuf.String(),
-			Draft:        draft,
-		})
-
-		err = tmpl.ExecuteTemplate(outfile, postTmplFilename,
-			&struct {
-				*Post
-				Index *Index
-			}{
-				Post:  index.Posts[len(index.Posts)-1],
-				Index: &index,
-			})
-		if err != nil {
+		if tmpl.ExecuteTemplate(outfile, postTmplFilename, post); err != nil {
 			log.Fatalln("tmpl.ExecuteTemplate:", err)
 		}
+		log.Printf("post \"%s\" generated\n", filename)
 	}
 
 	sort.Sort(sort.Reverse(index))
@@ -212,7 +225,7 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 	if err := tmpl.ExecuteTemplate(outfile, indexTmplFilename, index); err != nil {
 		log.Fatalln("tmpl.ExecuteTemplate:", err)
 	}
-	log.Println("index.html")
+	log.Println("page \"index.html\" generated")
 
 	// index.xml
 	if outfile, err = os.Create(path.Join(outputPath, "index.xml")); err != nil {
@@ -221,7 +234,26 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 	if err := tmpl.ExecuteTemplate(outfile, feedTmplFilename, index); err != nil {
 		log.Fatalln("tmpl.ExecuteTemplate:", err)
 	}
-	log.Println("index.xml")
+	log.Println("page \"index.xml\" generated")
+}
+
+type notFoundOnSuffixHandler struct {
+	h      http.Handler
+	suffix string
+}
+
+func (n *notFoundOnSuffixHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.URL.String())
+	if strings.HasSuffix(r.URL.Path, n.suffix) {
+		http.NotFound(w, r)
+		return
+	}
+	n.h.ServeHTTP(w, r)
+}
+
+// NotFoundOnSuffix will return 404 when requested url ended the given suffix
+func NotFoundOnSuffix(suffix string, h http.Handler) http.Handler {
+	return &notFoundOnSuffixHandler{suffix: suffix, h: h}
 }
 
 func main() {
@@ -284,7 +316,7 @@ func main() {
 		}
 		defer watcher.Close()
 
-		files, err := sourceFiles(sourcePath)
+		files, err := listSourceFiles(sourcePath)
 		if err != nil {
 			log.Fatal("ioutil.ReadFile:", err)
 		}
@@ -318,11 +350,11 @@ func main() {
 
 	if serveFlag != nil && *serveFlag != "" {
 		if assetsFlag != nil && *assetsFlag != "" {
-			fs := http.FileServer(http.Dir(*assetsFlag))
-			http.Handle("/assets/", http.StripPrefix("/assets/", fs))
+			fs := NotFoundOnSuffix("/", http.FileServer(http.Dir(*assetsFlag)))
+			http.Handle("/assets/", http.StripPrefix("/assets", fs))
 		}
 
-		fs := http.FileServer(http.Dir(*outPathFlag))
+		fs := NotFoundOnSuffix("/post/", http.FileServer(http.Dir(*outPathFlag)))
 		http.Handle("/", fs)
 
 		fmt.Fprintf(os.Stderr, "Listening on http://%s\n", *serveFlag)
