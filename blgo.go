@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/xml"
-	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -44,7 +43,6 @@ type Post struct {
 	Link           string
 	RelativeLink   string
 	Title          string
-	BlogTitle      string
 	XMLDesc        string
 	XMLTitle       string
 	Draft          bool
@@ -74,7 +72,7 @@ func (p *Post) Read(filename string, body []byte) error {
 	if v, ok := frontmatter["title"]; ok {
 		title = v.(string)
 	} else {
-		return errors.New("could not read the title from post")
+		return fmt.Errorf("could not read the title from post")
 	}
 
 	if v, ok := frontmatter["draft"]; ok {
@@ -96,8 +94,8 @@ func (p *Post) Read(filename string, body []byte) error {
 	p.Body = string(blackfriday.MarkdownOptions(body, renderer, blackfriday.Options{Extensions: commonExtensions}))
 	p.Title = title
 	p.Date = date
-	p.Link = path.Join(p.Index.URL, "post", p.Slug+".html")
-	p.RelativeLink = path.Join("/", "post", p.Slug+".html")
+	p.Link = strings.TrimSuffix(p.Index.URL, "/") + "/" + path.Join("post", p.Slug)
+	p.RelativeLink = path.Join("/", "post", p.Slug)
 	p.XMLDesc = descBuf.String()
 	p.XMLTitle = titleBuf.String()
 	p.Draft = draft
@@ -237,23 +235,29 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 	log.Println("page \"index.xml\" generated")
 }
 
-type notFoundOnSuffixHandler struct {
-	h      http.Handler
-	suffix string
+type fileServer struct {
+	h          http.Handler
+	suffix     string
+	defaultExt string
 }
 
-func (n *notFoundOnSuffixHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (n *fileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.String())
 	if strings.HasSuffix(r.URL.Path, n.suffix) {
 		http.NotFound(w, r)
 		return
 	}
+	if n.defaultExt != "" {
+		if r.URL.Path != "/" && !strings.HasSuffix(r.URL.Path, n.defaultExt) {
+			r.URL.Path = r.URL.Path + n.defaultExt
+		}
+	}
 	n.h.ServeHTTP(w, r)
 }
 
-// NotFoundOnSuffix will return 404 when requested url ended the given suffix
-func NotFoundOnSuffix(suffix string, h http.Handler) http.Handler {
-	return &notFoundOnSuffixHandler{suffix: suffix, h: h}
+// FileServer will return 404 when requested url ends with suffix
+func FileServer(suffix string, defaultExt string, h http.Handler) http.Handler {
+	return &fileServer{suffix: suffix, defaultExt: defaultExt, h: h}
 }
 
 func main() {
@@ -350,11 +354,11 @@ func main() {
 
 	if serveFlag != nil && *serveFlag != "" {
 		if assetsFlag != nil && *assetsFlag != "" {
-			fs := NotFoundOnSuffix("/", http.FileServer(http.Dir(*assetsFlag)))
+			fs := FileServer("/", "", http.FileServer(http.Dir(*assetsFlag)))
 			http.Handle("/assets/", http.StripPrefix("/assets", fs))
 		}
 
-		fs := NotFoundOnSuffix("/post/", http.FileServer(http.Dir(*outPathFlag)))
+		fs := FileServer("/post/", ".html", http.FileServer(http.Dir(*outPathFlag)))
 		http.Handle("/", fs)
 
 		fmt.Fprintf(os.Stderr, "Listening on http://%s\n", *serveFlag)
