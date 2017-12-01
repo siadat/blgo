@@ -211,7 +211,6 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 		if tmpl.ExecuteTemplate(outfile, postTmplFilename, post); err != nil {
 			log.Fatalln("tmpl.ExecuteTemplate:", err)
 		}
-		log.Printf("post \"%s\" generated\n", filename)
 	}
 
 	sort.Sort(sort.Reverse(index))
@@ -223,7 +222,6 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 	if err := tmpl.ExecuteTemplate(outfile, indexTmplFilename, index); err != nil {
 		log.Fatalln("tmpl.ExecuteTemplate:", err)
 	}
-	log.Println("page \"index.html\" generated")
 
 	// index.xml
 	if outfile, err = os.Create(path.Join(outputPath, "index.xml")); err != nil {
@@ -232,7 +230,6 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 	if err := tmpl.ExecuteTemplate(outfile, feedTmplFilename, index); err != nil {
 		log.Fatalln("tmpl.ExecuteTemplate:", err)
 	}
-	log.Println("page \"index.xml\" generated")
 }
 
 type fileServer struct {
@@ -242,7 +239,7 @@ type fileServer struct {
 }
 
 func (n *fileServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.String())
+	log.Println(r.Method, r.URL.String())
 	if strings.HasSuffix(r.URL.Path, n.suffix) {
 		http.NotFound(w, r)
 		return
@@ -340,7 +337,7 @@ func main() {
 			for {
 				select {
 				case event := <-watcher.Events:
-					log.Println(event.Op, event.Name)
+					log.Println(event)
 					if event.Op&fsnotify.Remove == fsnotify.Remove || event.Op&fsnotify.Write == fsnotify.Write {
 						buildAll(*templatesFlag, *outPathFlag, sourcePath)
 						watcher.Add(event.Name)
