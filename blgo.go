@@ -356,6 +356,11 @@ func main() {
 	}
 
 	if serveFlag != nil && *serveFlag != "" {
+		if assetsFlag != nil && *assetsFlag != "" {
+			fs := FileServer("/", "", http.FileServer(http.Dir(*assetsFlag)))
+			http.Handle("/assets/", http.StripPrefix("/assets", fs))
+		}
+
 		fs := FileServer("/post/", ".html", http.FileServer(http.Dir(*outPathFlag)))
 		http.Handle("/", fs)
 
