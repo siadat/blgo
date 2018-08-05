@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/otiai10/copy"
 	"github.com/russross/blackfriday"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -173,7 +174,7 @@ func listSourceFiles(sourcePath string) (filenames []string, err error) {
 }
 
 // buildAll builds the whole blog
-func buildAll(templatesPath, outputPath string, sourcePath string) {
+func buildAll(templatesPath, outputPath string, sourcePath string, assetsPath string) {
 	log.SetFlags(log.LstdFlags)
 	tmpl := template.Must(template.ParseFiles(
 		path.Join(templatesPath, postTmplFilename),
@@ -184,6 +185,10 @@ func buildAll(templatesPath, outputPath string, sourcePath string) {
 	files, err := listSourceFiles(sourcePath)
 	if err != nil {
 		log.Fatal("ioutil.ReadFile:", err)
+	}
+
+	if err := copy.Copy(assetsPath, path.Join(outputPath, "assets")); err != nil {
+		log.Fatalf("error copying assets from %v to %v", assetsPath, outputPath)
 	}
 
 	indexFilename := path.Join(sourcePath, settingsFilename)
@@ -298,17 +303,18 @@ func main() {
 		}
 	}
 
-	// check assets path
-	if assetsFlag != nil {
-		// check out assetPath
-		if stat, err := os.Stat(path.Join(cwd, *assetsFlag)); err != nil && !os.IsExist(err) || !stat.IsDir() {
+	// check assets in output path
+	assetsPath := path.Join(cwd, *assetsFlag)
+	if stat, err := os.Stat(assetsPath); err != nil && !os.IsExist(err) || !stat.IsDir() {
+		err := os.Mkdir(assetsPath, 0755)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "specified path \"%s\" for assets doesn't exists or is not a directory\n", *assetsFlag)
 			os.Exit(1)
 		}
 	}
 
 	sourcePath := flag.Arg(0)
-	buildAll(*templatesFlag, *outPathFlag, sourcePath)
+	buildAll(*templatesFlag, *outPathFlag, sourcePath, assetsPath)
 
 	if *watchFlag {
 		watcher, err := fsnotify.NewWatcher()
@@ -339,7 +345,7 @@ func main() {
 				case event := <-watcher.Events:
 					log.Println(event)
 					if event.Op&fsnotify.Remove == fsnotify.Remove || event.Op&fsnotify.Write == fsnotify.Write {
-						buildAll(*templatesFlag, *outPathFlag, sourcePath)
+						buildAll(*templatesFlag, *outPathFlag, sourcePath, assetsPath)
 						watcher.Add(event.Name)
 					}
 				case err := <-watcher.Errors:
