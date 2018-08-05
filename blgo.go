@@ -278,9 +278,6 @@ func main() {
 	outPathFlag := flag.String("output", "generated", "output path")
 	seedFlag := flag.String("seed", "", "path to seed directory")
 
-	// assetsFlag := flag.String("assets", "", "path to the assets files for serving")
-	// templatesFlag := flag.String("templates", "", "path to the templates directory")
-
 	flag.Parse()
 
 	if len(os.Args) <= 1 {
