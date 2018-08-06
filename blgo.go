@@ -174,7 +174,11 @@ func listSourceFiles(sourcePath string) (filenames []string, err error) {
 }
 
 // buildAll builds the whole blog
-func buildAll(templatesPath, outputPath string, sourcePath string, assetsPath string) {
+func buildAll(seedPath string, outputPath string) {
+	templatesPath := filepath.Join(seedPath, "templates")
+	sourcePath := filepath.Join(seedPath, "src")
+	assetsPath := filepath.Join(seedPath, "assets")
+
 	log.SetFlags(log.LstdFlags)
 	tmpl := template.Must(template.ParseFiles(
 		path.Join(templatesPath, postTmplFilename),
@@ -272,8 +276,7 @@ func main() {
 	watchFlag := flag.Bool("watch", false, "tries to rebuild the src on change")
 	serveFlag := flag.String("serve", "", "listening address for serving the blog")
 	outPathFlag := flag.String("output", "generated", "output path")
-	assetsFlag := flag.String("assets", "", "path to the assets files for serving")
-	templatesFlag := flag.String("templates", "", "path to the templates directory")
+	seedFlag := flag.String("seed", "", "path to seed directory")
 
 	flag.Parse()
 
@@ -304,17 +307,16 @@ func main() {
 	}
 
 	// check assets in output path
-	assetsPath := path.Join(cwd, *assetsFlag)
+	assetsPath := path.Join(cwd, *outPathFlag, "assets")
 	if stat, err := os.Stat(assetsPath); err != nil && !os.IsExist(err) || !stat.IsDir() {
 		err := os.Mkdir(assetsPath, 0755)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "specified path \"%s\" for assets doesn't exists or is not a directory\n", *assetsFlag)
+			fmt.Fprintf(os.Stderr, "specified path \"%s\" for assets doesn't exists or is not a directory\n", assetsPath)
 			os.Exit(1)
 		}
 	}
 
-	sourcePath := flag.Arg(0)
-	buildAll(*templatesFlag, *outPathFlag, sourcePath, assetsPath)
+	buildAll(*seedFlag, *outPathFlag)
 
 	if *watchFlag {
 		watcher, err := fsnotify.NewWatcher()
@@ -323,6 +325,7 @@ func main() {
 		}
 		defer watcher.Close()
 
+		sourcePath := filepath.Join(*seedFlag, "src")
 		files, err := listSourceFiles(sourcePath)
 		if err != nil {
 			log.Fatal("ioutil.ReadFile:", err)
@@ -333,8 +336,10 @@ func main() {
 				log.Fatal(err)
 			}
 		}
+
+		templatesFlag := filepath.Join(*seedFlag, "templates")
 		for _, filename := range []string{indexTmplFilename, feedTmplFilename, postTmplFilename} {
-			if err := watcher.Add(path.Join(*templatesFlag, filename)); err != nil {
+			if err := watcher.Add(path.Join(templatesFlag, filename)); err != nil {
 				log.Fatal(err)
 			}
 		}
@@ -345,7 +350,7 @@ func main() {
 				case event := <-watcher.Events:
 					log.Println(event)
 					if event.Op&fsnotify.Remove == fsnotify.Remove || event.Op&fsnotify.Write == fsnotify.Write {
-						buildAll(*templatesFlag, *outPathFlag, sourcePath, assetsPath)
+						buildAll(*seedFlag, *outPathFlag)
 						watcher.Add(event.Name)
 					}
 				case err := <-watcher.Errors:
@@ -356,12 +361,10 @@ func main() {
 	}
 
 	if serveFlag != nil && *serveFlag != "" {
-		if assetsFlag != nil && *assetsFlag != "" {
-			fs := FileServer("/", "", http.FileServer(http.Dir(*assetsFlag)))
-			http.Handle("/assets/", http.StripPrefix("/assets", fs))
-		}
+		fs := FileServer("/", "", http.FileServer(http.Dir(assetsPath)))
+		http.Handle("/assets/", http.StripPrefix("/assets", fs))
 
-		fs := FileServer("/post/", ".html", http.FileServer(http.Dir(*outPathFlag)))
+		fs = FileServer("/post/", ".html", http.FileServer(http.Dir(*outPathFlag)))
 		http.Handle("/", fs)
 
 		fmt.Fprintf(os.Stderr, "Listening on http://%s\n", *serveFlag)
