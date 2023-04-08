@@ -86,7 +86,11 @@ func (p *Post) Read(filename string, body []byte) error {
 	}
 
 	var descBuf, titleBuf bytes.Buffer
-	xml.EscapeText(&descBuf, bytes.Trim(body[:200], " \n\r"))
+	var desc = body
+	if len(desc) > 200 {
+		desc = desc[:200]
+	}
+	xml.EscapeText(&descBuf, bytes.Trim(desc, " \n\r"))
 	xml.EscapeText(&titleBuf, []byte(title))
 
 	p.Slug = strings.TrimSuffix(filepath.Base(filename), ".md")
