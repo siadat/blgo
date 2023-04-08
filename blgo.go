@@ -95,7 +95,7 @@ func (p *Post) Read(filename string, body []byte) error {
 	p.Title = title
 	p.Date = date
 	p.Link = strings.TrimSuffix(p.Index.URL, "/") + "/" + path.Join("post", p.Slug)
-	p.RelativeLink = path.Join("/", "post", p.Slug)
+	p.RelativeLink = path.Join("post", p.Slug)
 	p.XMLDesc = descBuf.String()
 	p.XMLTitle = titleBuf.String()
 	p.Draft = draft
