@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/otiai10/copy"
 	"github.com/russross/blackfriday"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -177,7 +176,6 @@ func listSourceFiles(sourcePath string) (filenames []string, err error) {
 func buildAll(seedPath string, outputPath string) {
 	templatesPath := filepath.Join(seedPath, "templates")
 	sourcePath := filepath.Join(seedPath, "src")
-	assetsPath := filepath.Join(seedPath, "assets")
 
 	log.SetFlags(log.LstdFlags)
 	tmpl := template.Must(template.ParseFiles(
@@ -189,10 +187,6 @@ func buildAll(seedPath string, outputPath string) {
 	files, err := listSourceFiles(sourcePath)
 	if err != nil {
 		log.Fatal("ioutil.ReadFile:", err)
-	}
-
-	if err := copy.Copy(assetsPath, path.Join(outputPath, "assets")); err != nil {
-		log.Fatalf("error copying assets from %v to %v", assetsPath, outputPath)
 	}
 
 	indexFilename := path.Join(sourcePath, settingsFilename)
