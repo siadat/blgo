@@ -46,6 +46,7 @@ type Post struct {
 	XMLDesc        string
 	XMLTitle       string
 	Draft          bool
+	Short          bool
 }
 
 // ReadFile will fill the post from given filename
@@ -61,6 +62,7 @@ func (p *Post) ReadFile(filename string) error {
 func (p *Post) Read(filename string, body []byte) error {
 	var title string
 	var draft bool
+	var short bool
 	var date time.Time
 	var err error
 
@@ -77,6 +79,10 @@ func (p *Post) Read(filename string, body []byte) error {
 
 	if v, ok := frontmatter["draft"]; ok {
 		draft = v.(bool)
+	}
+
+	if v, ok := frontmatter["short"]; ok {
+		short = v.(bool)
 	}
 
 	if v, ok := frontmatter["date"]; ok {
@@ -103,6 +109,7 @@ func (p *Post) Read(filename string, body []byte) error {
 	p.XMLDesc = descBuf.String()
 	p.XMLTitle = titleBuf.String()
 	p.Draft = draft
+	p.Short = short
 
 	return nil
 }
